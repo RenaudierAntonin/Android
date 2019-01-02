@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">RoomProject</string>
+    <string name="light">Light</string>
+    <string name="noise">Noise</string>
+    <string name="room">Room</string>
+    <string name="ok">OK</string>
+    <string name="building">Building</string>
+    <string name="ref">Refresh</string>
+    <string name="lightonoff">Light: ON/OFF</string>
+    <string name="ringonoff">Ring: ON/OFF</string>
+    <string name="enter_room">Enter Room</string>
+    <string name="image_content_description">Image Content Description</string>
+</resources>
