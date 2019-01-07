@@ -1,5 +1,6 @@
 package com.example.roomproject;
 
+import android.annotation.SuppressLint;
 import android.app.Activity; //Import des librairies servant à l'aspect graphique de l'application
 import android.os.Bundle;
 import android.support.design.widget.Snackbar;
@@ -61,6 +62,7 @@ public class MainActivity extends AppCompatActivity {
     public Light light;
     public List<String> colors;
     public String color;
+    public String Text = "Actual Color : ";
 
 
     //Objet en lien avec l'aspect graphique de l'application
@@ -94,6 +96,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     //Main de l'application Android
+    @SuppressLint("WrongViewCast")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -117,11 +120,14 @@ public class MainActivity extends AppCompatActivity {
         spinnerLight = findViewById(R.id.spinnerLight);
         spinnerColor = findViewById(R.id.spinnerColor);
 
+        progressBar.setVisibility(View.INVISIBLE);
+        scrollView.setVisibility(View.VISIBLE);
+
         //Fonction permettant de changer l'état de la light quand on clique sur l'image
         imageButtonLight.setOnClickListener(new AdapterView.OnClickListener() { //On agit quand on clique sur l'objet imageButtonLight
             @Override
             public void onClick(View view) {
-                MainActivity.this.switchLight(MainActivity.this.light); //On appelle la fonction switchLight qui change l'état de la lampe
+                MainActivity.this.switchLightOnClick(MainActivity.this.light); //On appelle la fonction switchLight qui change l'état de la lampe
             }                                                           // et qui fait aussi la requête afin de changer en base de données
         });
 
@@ -167,10 +173,14 @@ public class MainActivity extends AppCompatActivity {
 
         //Fonction définissant le comportement à adopter quand on choisit une lumière dans le spinner
         spinnerLight.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @SuppressLint("SetTextI18n")
             @Override
             public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {//Le parametre i correspond à l'di de la lampe parmi toutes les lampes
                 MainActivity.this.light = MainActivity.this.lightsSelected.get(i); //On change la lampe sélectionnée
                 setSpinnerColor(); //On met à jour le spinner des couleurs
+                MainActivity.this.color=MainActivity.this.light.getColor();
+                int index = MainActivity.this.colors.indexOf(MainActivity.this.color);
+                spinnerColor.setSelection(index);
                 set(); //On change l'imageButtonLight si besoin
             }
 
@@ -184,8 +194,10 @@ public class MainActivity extends AppCompatActivity {
         spinnerColor.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int i, long l) {
+                if (!(MainActivity.this.color.equals(MainActivity.this.colors.get(i)))) {
                     MainActivity.this.color = MainActivity.this.colors.get(i); //On change la couleur sélectionnée
-                    MainActivity.this.switchColor(MainActivity.this.light,MainActivity.this.color);//On appelle switchColor qui permet de changer la couleur en base de donnée
+                    MainActivity.this.switchColorOnCLick(MainActivity.this.light,MainActivity.this.color);//On appelle switchColor qui permet de changer la couleur en base de donnée
+                }
             }
 
             @Override
@@ -264,7 +276,7 @@ public class MainActivity extends AppCompatActivity {
                         building.setName(buildingjson.getString("name"));//On set le nom
                         buildings.add(building);//On ajoute le batiment à buildings
                     }
-                    MainActivity.this.setSpinnerBuilding();
+                    MainActivity.this.setSpinnerBuilding();//On configure le spinner des batiments
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
@@ -406,7 +418,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     //Fonction permettant de changer le status des lampes en local et sur la base de donnée
-    public void switchLight(Light light) {
+    public void switchLightOnClick(Light light) {
         //On change en local
         if(light.getStatus().equals(Status.ON)) {
             light.setStatus(Status.OFF);
@@ -439,10 +451,19 @@ public class MainActivity extends AppCompatActivity {
         scrollView.setVisibility(View.INVISIBLE);
     }
 
+    public void switchLight(Light light) {
+        //On change en local
+        if (light.getStatus().equals(Status.ON)) {
+            light.setStatus(Status.OFF);
+        } else {
+            light.setStatus(Status.ON);
+        }
+        set();
+    }
+
 
     //Fonction permettant de changer la couleur des lampes en local et en base de données
-    void switchColor(Light light, String color) {
-        int index = MainActivity.this.colors.indexOf(color);
+    void switchColorOnCLick(Light light, String color) {
         light.setColor(color);//On change la couleur en local
         //On effectue la requête en base de données
         JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.PUT, urlApiLights +"/" +light.getId().toString() + "/changeColor/" + light.getColor(), null,
@@ -459,11 +480,16 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }, errorListener);
         requestQueue.add(jsonObjectRequest);//On ajoute dans la queue
-        spinnerColor.setSelection(index);//On place le spinner sur la bonne couleur
-        progressBar.setVisibility(View.VISIBLE);
-        scrollView.setVisibility(View.INVISIBLE);
+        MainActivity.this.color=MainActivity.this.light.getColor();
     }
 
+    void switchColor(Light light, String color) {
+        light.setColor(color);//On change la couleur en local
+        MainActivity.this.color=MainActivity.this.light.getColor();
+        int index = colors.indexOf(color);
+        spinnerColor.setSelection(index,true);
+
+    }
     public void getBuildings() {//Fonction effectuant la requete GET pour récupérer tous les batiments, on stock dans responseBuildings
         JsonArrayRequest jsonArrayRequest = new JsonArrayRequest(Request.Method.GET, urlApiBuildings, null, responseBuildings, errorListener);
         requestQueue.add(jsonArrayRequest);//On ajoute dans la queue
@@ -513,14 +539,15 @@ public class MainActivity extends AppCompatActivity {
             mqttAndroidClient.subscribe(subscriptionTopic, 0, new IMqttMessageListener() {
                 @Override
                 public void messageArrived(String topic, MqttMessage message) { //Fonction qui se lance quand le message arriver Il sera de la forme Id Order Valeur
+                    System.out.println(message);
                     String[] messagesepareted = message.toString().split(" ");//On parse le string
                     Light light = MainActivity.this.lights.get(Integer.parseInt(messagesepareted[0])-1);//On récupère la lampe correspondant à l'id
-                    if (messagesepareted[1].contains("Switch")) { //Si l'ordre est Switch
+                    if (messagesepareted[1].contains("switch")) { //Si l'ordre est Switch
                         if (!(messagesepareted[2].contains(light.getStatus().toString()))) { //On vérifie qu'on a un status et une valeur différents
                             switchLight(light); //On appelle switchlight
                         }
                     }
-                    else if (messagesepareted[1].contains("ChangeColor")) {//Si l'ordre est ChangeColor
+                    else if (messagesepareted[1].contains("changeColor")) {//Si l'ordre est ChangeColor
                         if (!(messagesepareted[2].contains(light.getColor()))) {//On vérifie que les couleurs sont différentes
                             switchColor(light,messagesepareted[2]);//On appelle switchcolor
                         }
